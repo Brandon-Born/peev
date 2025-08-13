@@ -1,12 +1,12 @@
 import React from 'react'
 import { 
-	Typography, Stack, Paper, Grid, TextField, Button, Table, TableBody, TableCell, 
+	Typography, Stack, Paper, Grid, TextField, Table, TableBody, TableCell, 
 	TableContainer, TableHead, TableRow, Accordion, AccordionSummary, AccordionDetails,
 	Box, Chip
 } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { useQuery } from '@tanstack/react-query'
-import { listByOwner } from '../data/firestore'
+import { listByOwner, toDate } from '../data/firestore'
 import { Transaction, SaleItem, LegacySale, InventoryItem, Product, Shipment } from '../domain/models'
 import { formatCurrency } from '../utils/format'
 import { calculateCOGSForDateRange } from '../utils/cogs'
@@ -59,8 +59,8 @@ export function ReportsPage() {
 
 		// Filter transactions for selected month
 		const monthTransactions = transactionsQuery.data.filter(t => {
-			const saleDate = new Date(t.saleDate?.toDate?.() ?? t.saleDate ?? new Date())
-			return saleDate >= startOfMonth && saleDate <= endOfMonth
+			const saleDate = toDate(t.saleDate)
+			return saleDate && saleDate >= startOfMonth && saleDate <= endOfMonth
 		})
 
 		// Get transaction IDs for the month
@@ -73,8 +73,8 @@ export function ReportsPage() {
 
 		// Add legacy sales for the month
 		const monthLegacySales = legacySalesQuery.data?.filter(s => {
-			const saleDate = new Date(s.saleDate?.toDate?.() ?? s.saleDate ?? new Date())
-			return saleDate >= startOfMonth && saleDate <= endOfMonth
+			const saleDate = toDate(s.saleDate)
+			return saleDate && saleDate >= startOfMonth && saleDate <= endOfMonth
 		}) || []
 
 		// Aggregate by product
@@ -161,14 +161,14 @@ export function ReportsPage() {
 
 		// Filter transactions for selected quarter
 		const quarterTransactions = transactionsQuery.data.filter(t => {
-			const saleDate = new Date(t.saleDate?.toDate?.() ?? t.saleDate ?? new Date())
-			return saleDate >= startOfQuarter && saleDate <= endOfQuarter
+			const saleDate = toDate(t.saleDate)
+			return saleDate && saleDate >= startOfQuarter && saleDate <= endOfQuarter
 		})
 
 		// Filter legacy sales for selected quarter
 		const quarterLegacySales = legacySalesQuery.data?.filter(s => {
-			const saleDate = new Date(s.saleDate?.toDate?.() ?? s.saleDate ?? new Date())
-			return saleDate >= startOfQuarter && saleDate <= endOfQuarter
+			const saleDate = toDate(s.saleDate)
+			return saleDate && saleDate >= startOfQuarter && saleDate <= endOfQuarter
 		}) || []
 
 		// Calculate total revenue

@@ -6,12 +6,9 @@ import { ReportsPage } from './pages/ReportsPage'
 import { GlossaryPage } from './pages/GlossaryPage'
 import { LoginPage } from './pages/LoginPage'
 import { ProtectedRoute } from './modules/auth/ProtectedRoute'
-import { useAuth } from './modules/auth/AuthContext'
 import { AppLayout } from './layouts/AppLayout'
 
 export default function App() {
-	const { user, signInWithGoogle, signOut } = useAuth()
-
 	return (
 		<Routes>
 			<Route path="/login" element={<LoginPage />} />

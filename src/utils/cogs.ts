@@ -1,4 +1,5 @@
 import { Shipment, InventoryItem, SaleItem, LegacySale } from '../domain/models'
+import { toDate } from '../data/firestore'
 
 interface COGSCalculation {
 	totalCOGS: number
@@ -149,8 +150,8 @@ export function calculateCOGSForDateRange(
 	
 	// Filter legacy sales for date range
 	const filteredLegacySales = legacySales.filter(sale => {
-		const saleDate = new Date(sale.saleDate?.toDate?.() ?? sale.saleDate ?? new Date())
-		return saleDate >= startDate && saleDate <= endDate
+		const saleDate = toDate(sale.saleDate)
+		return saleDate && saleDate >= startDate && saleDate <= endDate
 	})
 	
 	return calculateTotalCOGS(filteredSaleItems, filteredLegacySales, inventoryItems, shipments)

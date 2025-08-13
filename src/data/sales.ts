@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, getDoc, runTransaction, serverTimestamp } from 'firebase/firestore'
+import { collection, doc, runTransaction, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../modules/firebase'
 
 interface SaleItemData {

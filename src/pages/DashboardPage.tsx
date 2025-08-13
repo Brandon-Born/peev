@@ -1,6 +1,6 @@
 import { Typography, Stack, Paper, Grid } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
-import { listByOwner, listByOwnerBetween } from '../data/firestore'
+import { listByOwner, toDate } from '../data/firestore'
 import { InventoryItem, Transaction, SaleItem, LegacySale, Shipment } from '../domain/models'
 import React from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
@@ -25,8 +25,8 @@ export function DashboardPage() {
 	// Filter transactions for this month (client-side filtering is more reliable)
 	const transactionRevenueMonth = (transactionsQuery.data || [])
 		.filter(t => {
-			const saleDate = new Date(t.saleDate?.toDate?.() ?? t.saleDate ?? new Date())
-			return saleDate >= startOfMonth && saleDate <= endOfMonth
+			const saleDate = toDate(t.saleDate)
+			return saleDate && saleDate >= startOfMonth && saleDate <= endOfMonth
 		})
 		.reduce((sum, t) => sum + (t.total || 0), 0)
 	
@@ -34,8 +34,8 @@ export function DashboardPage() {
 	const legacyRevenueAll = (legacySalesQuery.data || []).reduce((sum, s) => sum + (s.pricePerItem || 0) * (s.quantitySold || 0), 0)
 	const legacyRevenueMonth = (legacySalesQuery.data || [])
 		.filter(s => {
-			const saleDate = new Date(s.saleDate?.toDate?.() ?? s.saleDate ?? new Date())
-			return saleDate >= startOfMonth && saleDate <= endOfMonth
+			const saleDate = toDate(s.saleDate)
+			return saleDate && saleDate >= startOfMonth && saleDate <= endOfMonth
 		})
 		.reduce((sum, s) => sum + (s.pricePerItem || 0) * (s.quantitySold || 0), 0)
 	
@@ -88,7 +88,8 @@ export function DashboardPage() {
 	
 	// Add transaction revenue to monthly chart
 	;(transactionsQuery.data || []).forEach((t) => {
-		const d = new Date(t.saleDate?.toDate?.() ?? t.saleDate ?? new Date())
+		const d = toDate(t.saleDate)
+		if (!d) return
 		const key = `${d.getFullYear()}-${d.getMonth() + 1}`
 		if (monthlyRevenueMap.has(key)) {
 			monthlyRevenueMap.set(key, monthlyRevenueMap.get(key)! + (t.total || 0))
@@ -97,7 +98,8 @@ export function DashboardPage() {
 	
 	// Add legacy sales revenue to monthly chart
 	;(legacySalesQuery.data || []).forEach((s) => {
-		const d = new Date(s.saleDate?.toDate?.() ?? s.saleDate ?? new Date())
+		const d = toDate(s.saleDate)
+		if (!d) return
 		const key = `${d.getFullYear()}-${d.getMonth() + 1}`
 		if (monthlyRevenueMap.has(key)) {
 			monthlyRevenueMap.set(key, monthlyRevenueMap.get(key)! + (s.pricePerItem || 0) * (s.quantitySold || 0))

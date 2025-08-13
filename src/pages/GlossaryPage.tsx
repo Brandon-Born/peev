@@ -4,7 +4,6 @@ import {
 	Box, Chip, Divider
 } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import { formatCurrency } from '../utils/format'
 
 interface GlossaryTerm {
 	term: string
@@ -143,7 +142,7 @@ const categories = ['Financial', 'Inventory', 'Operations', 'Calculations'] as c
 export function GlossaryPage() {
 	const [expandedCategory, setExpandedCategory] = React.useState<string>('Financial')
 
-	const handleCategoryChange = (category: string) => (event: React.SyntheticEvent, isExpanded: boolean) => {
+	const handleCategoryChange = (category: string) => (_event: React.SyntheticEvent, isExpanded: boolean) => {
 		setExpandedCategory(isExpanded ? category : '')
 	}
 

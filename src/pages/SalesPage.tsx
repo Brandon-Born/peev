@@ -11,8 +11,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { listByOwner, deleteById, updateWithMeta } from '../data/firestore'
-import { auth } from '../modules/firebase'
+import { listByOwner, deleteById, toDate } from '../data/firestore'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { InventoryItem, Product, Shipment, Transaction, SaleItem, LegacySale } from '../domain/models'
 import { recordSaleTransaction } from '../data/sales'
@@ -332,7 +331,7 @@ export function SalesPage() {
 											return (
 												<TableRow key={transaction.id}>
 													<TableCell>
-														{new Date(transaction.saleDate?.toDate?.() ?? transaction.saleDate ?? new Date()).toLocaleDateString()}
+														{toDate(transaction.saleDate)?.toLocaleDateString()}
 													</TableCell>
 													<TableCell>{transaction.customerName || '—'}</TableCell>
 													<TableCell>
@@ -383,7 +382,7 @@ export function SalesPage() {
 										<Stack key={sale.id} direction="row" alignItems="center" justifyContent="space-between">
 											<Typography variant="body2">
 												{sale.quantitySold} × {formatCurrency(sale.pricePerItem / 100)} on{' '}
-												{new Date(sale.saleDate?.toDate?.() ?? sale.saleDate ?? new Date()).toLocaleDateString()}
+												{toDate(sale.saleDate)?.toLocaleDateString()}
 											</Typography>
 											<Button 
 												color="error" 
