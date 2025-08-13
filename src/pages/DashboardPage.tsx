@@ -1,30 +1,34 @@
 import { Typography, Stack, Paper, Grid } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { listByOwner, listByOwnerBetween } from '../data/firestore'
-import { InventoryItem, Transaction, SaleItem, LegacySale } from '../domain/models'
+import { InventoryItem, Transaction, SaleItem, LegacySale, Shipment } from '../domain/models'
 import React from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { formatCurrency } from '../utils/format'
+import { calculateTotalCOGS, calculateCOGSForDateRange } from '../utils/cogs'
 
 export function DashboardPage() {
 	const now = React.useMemo(() => new Date(), [])
 	const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 	const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
 
-	// New transaction-based queries
+	// Data queries
 	const transactionsQuery = useQuery({ queryKey: ['transactions'], queryFn: () => listByOwner<Transaction>('transactions') })
-	const monthTransactionsQuery = useQuery({ 
-		queryKey: ['transactions', 'month', startOfMonth.toISOString()], 
-		queryFn: () => listByOwnerBetween<Transaction>('transactions', 'saleDate', startOfMonth, endOfMonth) 
-	})
-	
-	// Legacy sales for backward compatibility
+	const saleItemsQuery = useQuery({ queryKey: ['saleItems'], queryFn: () => listByOwner<SaleItem>('saleItems') })
 	const legacySalesQuery = useQuery({ queryKey: ['sales'], queryFn: () => listByOwner<LegacySale>('sales') })
 	const inventoryQuery = useQuery({ queryKey: ['inventory'], queryFn: () => listByOwner<InventoryItem>('inventory') })
+	const shipmentsQuery = useQuery({ queryKey: ['shipments'], queryFn: () => listByOwner<Shipment>('shipments') })
 
 	// Calculate revenue from new transactions
 	const transactionRevenueAll = (transactionsQuery.data || []).reduce((sum, t) => sum + (t.total || 0), 0)
-	const transactionRevenueMonth = (monthTransactionsQuery.data || []).reduce((sum, t) => sum + (t.total || 0), 0)
+	
+	// Filter transactions for this month (client-side filtering is more reliable)
+	const transactionRevenueMonth = (transactionsQuery.data || [])
+		.filter(t => {
+			const saleDate = new Date(t.saleDate?.toDate?.() ?? t.saleDate ?? new Date())
+			return saleDate >= startOfMonth && saleDate <= endOfMonth
+		})
+		.reduce((sum, t) => sum + (t.total || 0), 0)
 	
 	// Calculate revenue from legacy sales
 	const legacyRevenueAll = (legacySalesQuery.data || []).reduce((sum, s) => sum + (s.pricePerItem || 0) * (s.quantitySold || 0), 0)
@@ -38,6 +42,42 @@ export function DashboardPage() {
 	// Combined totals
 	const revenueAll = transactionRevenueAll + legacyRevenueAll
 	const revenueMonth = transactionRevenueMonth + legacyRevenueMonth
+
+	// COGS calculations
+	const cogsAll = React.useMemo(() => {
+		if (!saleItemsQuery.data || !legacySalesQuery.data || !inventoryQuery.data || !shipmentsQuery.data) {
+			return 0
+		}
+		return calculateTotalCOGS(
+			saleItemsQuery.data,
+			legacySalesQuery.data,
+			inventoryQuery.data,
+			shipmentsQuery.data
+		)
+	}, [saleItemsQuery.data, legacySalesQuery.data, inventoryQuery.data, shipmentsQuery.data])
+
+	const cogsMonth = React.useMemo(() => {
+		if (!saleItemsQuery.data || !legacySalesQuery.data || !inventoryQuery.data || !shipmentsQuery.data || !transactionsQuery.data) {
+			return 0
+		}
+		return calculateCOGSForDateRange(
+			saleItemsQuery.data,
+			legacySalesQuery.data,
+			inventoryQuery.data,
+			shipmentsQuery.data,
+			transactionsQuery.data,
+			startOfMonth,
+			endOfMonth
+		)
+	}, [saleItemsQuery.data, legacySalesQuery.data, inventoryQuery.data, shipmentsQuery.data, transactionsQuery.data, startOfMonth, endOfMonth])
+
+	// Gross Profit calculations
+	const grossProfitAll = revenueAll - cogsAll
+	const grossProfitMonth = revenueMonth - cogsMonth
+
+	// Gross Margin percentages
+	const grossMarginAll = revenueAll > 0 ? (grossProfitAll / revenueAll) * 100 : 0
+	const grossMarginMonth = revenueMonth > 0 ? (grossProfitMonth / revenueMonth) * 100 : 0
 
 	// Monthly chart data for last 12 months
 	const months = Array.from({ length: 12 }).map((_, i) => {
@@ -70,22 +110,71 @@ export function DashboardPage() {
 		<Stack spacing={2}>
 			<Typography variant="h4">Dashboard</Typography>
 			<Grid container spacing={2}>
-				<Grid item xs={12} md={4}>
+				{/* Revenue Metrics */}
+				<Grid item xs={12} sm={6} md={3}>
 					<Paper sx={{ p: 2 }}>
-						<Typography variant="subtitle2">Total Revenue</Typography>
-						<Typography variant="h5">{formatCurrency(revenueAll / 100)}</Typography>
+						<Typography variant="subtitle2" color="text.secondary">Total Revenue</Typography>
+						<Typography variant="h5" color="primary">{formatCurrency(revenueAll / 100)}</Typography>
 					</Paper>
 				</Grid>
-				<Grid item xs={12} md={4}>
+				<Grid item xs={12} sm={6} md={3}>
 					<Paper sx={{ p: 2 }}>
-						<Typography variant="subtitle2">This Month Revenue</Typography>
-						<Typography variant="h5">{formatCurrency(revenueMonth / 100)}</Typography>
+						<Typography variant="subtitle2" color="text.secondary">This Month Revenue</Typography>
+						<Typography variant="h5" color="primary">{formatCurrency(revenueMonth / 100)}</Typography>
 					</Paper>
 				</Grid>
-				<Grid item xs={12} md={4}>
+
+				{/* COGS Metrics */}
+				<Grid item xs={12} sm={6} md={3}>
 					<Paper sx={{ p: 2 }}>
-						<Typography variant="subtitle2">Units On Hand</Typography>
+						<Typography variant="subtitle2" color="text.secondary">Total COGS</Typography>
+						<Typography variant="h5" color="warning.main">{formatCurrency(cogsAll / 100)}</Typography>
+					</Paper>
+				</Grid>
+				<Grid item xs={12} sm={6} md={3}>
+					<Paper sx={{ p: 2 }}>
+						<Typography variant="subtitle2" color="text.secondary">This Month COGS</Typography>
+						<Typography variant="h5" color="warning.main">{formatCurrency(cogsMonth / 100)}</Typography>
+					</Paper>
+				</Grid>
+
+				{/* Gross Profit Metrics */}
+				<Grid item xs={12} sm={6} md={3}>
+					<Paper sx={{ p: 2 }}>
+						<Typography variant="subtitle2" color="text.secondary">Total Gross Profit</Typography>
+						<Typography variant="h5" color="success.main">{formatCurrency(grossProfitAll / 100)}</Typography>
+						<Typography variant="body2" color="text.secondary">
+							{grossMarginAll.toFixed(1)}% margin
+						</Typography>
+					</Paper>
+				</Grid>
+				<Grid item xs={12} sm={6} md={3}>
+					<Paper sx={{ p: 2 }}>
+						<Typography variant="subtitle2" color="text.secondary">This Month Gross Profit</Typography>
+						<Typography variant="h5" color="success.main">{formatCurrency(grossProfitMonth / 100)}</Typography>
+						<Typography variant="body2" color="text.secondary">
+							{grossMarginMonth.toFixed(1)}% margin
+						</Typography>
+					</Paper>
+				</Grid>
+
+				{/* Inventory Metric */}
+				<Grid item xs={12} sm={6} md={3}>
+					<Paper sx={{ p: 2 }}>
+						<Typography variant="subtitle2" color="text.secondary">Units On Hand</Typography>
 						<Typography variant="h5">{(inventoryQuery.data || []).reduce((sum, i) => sum + (i.currentStock || 0), 0)}</Typography>
+					</Paper>
+				</Grid>
+
+				{/* P&L Summary */}
+				<Grid item xs={12} sm={6} md={3}>
+					<Paper sx={{ p: 2, bgcolor: grossProfitMonth >= 0 ? 'success.light' : 'error.light' }}>
+						<Typography variant="subtitle2" color="text.secondary">This Month P&L</Typography>
+						<Typography variant="body2">Revenue: {formatCurrency(revenueMonth / 100)}</Typography>
+						<Typography variant="body2">COGS: {formatCurrency(cogsMonth / 100)}</Typography>
+						<Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+							Profit: {formatCurrency(grossProfitMonth / 100)}
+						</Typography>
 					</Paper>
 				</Grid>
 			</Grid>

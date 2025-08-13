@@ -3,6 +3,7 @@ import { DashboardPage } from './pages/DashboardPage'
 import { InventoryPage } from './pages/InventoryPage'
 import { SalesPage } from './pages/SalesPage'
 import { ReportsPage } from './pages/ReportsPage'
+import { GlossaryPage } from './pages/GlossaryPage'
 import { LoginPage } from './pages/LoginPage'
 import { ProtectedRoute } from './modules/auth/ProtectedRoute'
 import { useAuth } from './modules/auth/AuthContext'
@@ -50,6 +51,16 @@ export default function App() {
 					<ProtectedRoute>
 						<AppLayout>
 							<ReportsPage />
+						</AppLayout>
+					</ProtectedRoute>
+				}
+			/>
+			<Route
+				path="/glossary"
+				element={
+					<ProtectedRoute>
+						<AppLayout>
+							<GlossaryPage />
 						</AppLayout>
 					</ProtectedRoute>
 				}
