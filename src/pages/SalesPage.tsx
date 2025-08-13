@@ -118,14 +118,26 @@ export function SalesPage() {
 				qc.invalidateQueries({ queryKey: ['saleItems'] }),
 			])
 
-			form.reset({
-				customerName: '',
-				items: [{ productId: '', inventoryId: '', quantity: '', priceUsd: '' }],
-				taxUsd: '',
-				discountUsd: '',
-			})
-
 			setSnack({ open: true, message: 'Transaction recorded successfully', severity: 'success' })
+
+			// Defer the form reset to avoid React hook conflicts
+			setTimeout(() => {
+				// Reset form fields first
+				form.reset({
+					customerName: '',
+					taxUsd: '',
+					discountUsd: '',
+				})
+				
+				// Then safely reset the field array
+				const currentItemCount = fields.length
+				for (let i = currentItemCount - 1; i >= 0; i--) {
+					remove(i)
+				}
+				
+				// Add exactly one fresh item
+				append({ productId: '', inventoryId: '', quantity: '', priceUsd: '' })
+			}, 0)
 		} catch (error: any) {
 			setSnack({ open: true, message: error.message || 'Transaction failed', severity: 'error' })
 		}
