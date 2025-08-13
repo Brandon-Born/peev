@@ -48,7 +48,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 			<Box component="footer" sx={{ py: 3, bgcolor: 'background.paper' }}>
 				<Container maxWidth="lg">
 					<Typography variant="body2" color="text.secondary">
-						© {new Date().getFullYear()} P.I.T.A. All rights reserved.
+						© {new Date().getFullYear()} Freyr and Sons LLC. All rights reserved.
 					</Typography>
 				</Container>
 			</Box>
