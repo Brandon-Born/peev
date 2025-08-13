@@ -32,9 +32,13 @@
   - **Fields**: `product` (ref → `products/{id}`), `shipment` (ref → `shipments/{id}`), `initialQuantity` (number), `currentStock` (number), `ownerUid` (string).
   - **Notes**: Each document represents stock for a specific product from a specific shipment.
 
-- `sales`
-  - **Fields**: `inventory` (ref → `inventory/{id}`), `quantitySold` (number), `pricePerItem` (number, cents), `saleDate` (timestamp), `ownerUid` (string).
-  - **Notes**: Each sale references exactly one inventory document (and thus one shipment). Multi-shipment sales are recorded as multiple sale documents.
+- `transactions`
+  - **Fields**: `saleDate` (timestamp), `customerName` (string, optional), `subtotal` (number, cents), `tax` (number, cents, optional), `discount` (number, cents, optional), `total` (number, cents), `ownerUid` (string).
+  - **Notes**: Represents a complete sales transaction that may contain multiple items. Replaces the old single-item `sales` collection.
+
+- `saleItems`
+  - **Fields**: `transactionId` (ref → `transactions/{id}`), `inventoryId` (ref → `inventory/{id}`), `quantitySold` (number), `pricePerItem` (number, cents), `lineTotal` (number, cents), `ownerUid` (string).
+  - **Notes**: Individual line items within a transaction. Each item references specific inventory from a specific shipment. Line total is calculated as `quantitySold * pricePerItem`.
 
 - Optional aggregations (for performance at scale)
   - `metrics/monthly/{YYYY-MM}`: `revenue` (number), `unitsSold` (number), `cogs` (number), `ownerUid` (string).
@@ -73,28 +77,31 @@
     - Show a table of all inventory with product name, shipment name/date, `initialQuantity`, `currentStock`.
 
 - Sales Tracker
-  - Form: select `Product` → show available stock by shipment (grouped `inventory` rows). User selects one inventory row and enters `Quantity Sold` and `Sale Price`.
-  - Submission (transaction):
-    - Read selected `inventory` doc.
-    - Verify `currentStock >= quantitySold`.
-    - Create `sales` doc.
-    - Decrement `inventory.currentStock`.
+  - Multi-item transaction form: Users can add multiple products to a single sale transaction.
+  - For each item: select `Product` → show available stock by shipment (grouped `inventory` rows). User selects inventory row, enters `Quantity Sold` and `Sale Price`.
+  - Transaction-level fields: `customerName` (optional), `discount`, `tax`.
+  - Submission (atomic transaction):
+    - Validate all inventory items have sufficient stock.
+    - Create `transactions` document with calculated totals.
+    - Create multiple `saleItems` documents.
+    - Decrement `inventory.currentStock` for all items.
     - Optionally increment shipment and monthly aggregates.
 
 - Reporting
   - Monthly Sales Report
-    - Input: target month. Query `sales` in range; group by product; compute `unitsSold` and `revenue` per product.
+    - Input: target month. Query `transactions` in range; join with `saleItems`; group by product; compute `unitsSold` and `revenue` per product.
   - Quarterly Tax Report
     - Input: year + quarter.
-    - Total Sales Revenue: sum within range.
-    - COGS: For each sale, compute per-unit cost using its shipment WAC: `(shipment.totalCost / shipment.metrics.unitsReceived) * sale.quantitySold`.
+    - Total Sales Revenue: sum `transactions.total` within range.
+    - COGS: For each sale item, compute per-unit cost using its shipment WAC: `(shipment.totalCost / shipment.metrics.unitsReceived) * saleItem.quantitySold`.
     - Gross Profit: `revenue - COGS`.
 
 ## Data and Calculation Details
-- Revenue per sale: `pricePerItem * quantitySold`.
+- Revenue per transaction: `transactions.total`.
+- Revenue per sale item: `saleItems.lineTotal` (calculated as `pricePerItem * quantitySold`).
 - WAC per shipment: `totalCost / unitsReceived` where `unitsReceived = sum(initialQuantity of inventory referencing shipment)`.
-- COGS per sale: `WAC(shipment) * quantitySold`.
-- Overall Gross Profit: `sum(pricePerItem * quantitySold) - sum(WAC(shipment) * quantitySold)`.
+- COGS per sale item: `WAC(shipment) * quantitySold`.
+- Overall Gross Profit: `sum(transactions.total) - sum(WAC(shipment) * saleItems.quantitySold)`.
 - Note: If `unitsReceived` is zero (no inventory yet), treat WAC as 0 for interim display; block sales if no stock.
 
 ## Client Data Layer
@@ -107,7 +114,8 @@
 - Guards: quantities are positive integers; prices are non-negative integers; dates required.
 
 ## Indexing Plan (Firestore)
-- `sales`: composite index on `ownerUid` + `saleDate` (ASC/DESC) for range queries and ordering.
+- `transactions`: composite index on `ownerUid` + `saleDate` (ASC/DESC) for range queries and ordering.
+- `saleItems`: composite index on `ownerUid` + `transactionId`, and `ownerUid` + `inventoryId` for lookups.
 - `inventory`: index on `ownerUid` + `product`, and `ownerUid` + `shipment` for lookups.
 - `products`: index on `ownerUid` + `category`.
 - `shipments`: index on `ownerUid` + `purchaseDate` (ordering for lists).

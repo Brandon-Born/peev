@@ -41,7 +41,33 @@ export const InventorySchema = z.object({
 })
 export type InventoryItem = z.infer<typeof InventorySchema> & { id: string }
 
-export const SaleSchema = z.object({
+export const TransactionSchema = z.object({
+	saleDate: z.date(),
+	customerName: z.string().optional(),
+	subtotal: z.number().int().nonnegative(), // cents
+	tax: z.number().int().nonnegative().optional(), // cents
+	discount: z.number().int().nonnegative().optional(), // cents
+	total: z.number().int().nonnegative(), // cents
+	ownerUid: z.string(),
+	createdAt: z.any().optional(),
+	updatedAt: z.any().optional(),
+})
+export type Transaction = z.infer<typeof TransactionSchema> & { id: string }
+
+export const SaleItemSchema = z.object({
+	transactionId: z.string().min(1),
+	inventoryId: z.string().min(1),
+	quantitySold: z.number().int().positive(),
+	pricePerItem: z.number().int().nonnegative(), // cents
+	lineTotal: z.number().int().nonnegative(), // cents (quantitySold * pricePerItem)
+	ownerUid: z.string(),
+	createdAt: z.any().optional(),
+	updatedAt: z.any().optional(),
+})
+export type SaleItem = z.infer<typeof SaleItemSchema> & { id: string }
+
+// Legacy Sale schema - keep for backward compatibility during migration
+export const LegacySaleSchema = z.object({
 	inventoryId: z.string().min(1),
 	quantitySold: z.number().int().positive(),
 	pricePerItem: z.number().int().nonnegative(), // cents
@@ -50,6 +76,6 @@ export const SaleSchema = z.object({
 	createdAt: z.any().optional(),
 	updatedAt: z.any().optional(),
 })
-export type Sale = z.infer<typeof SaleSchema> & { id: string }
+export type LegacySale = z.infer<typeof LegacySaleSchema> & { id: string }
 
 

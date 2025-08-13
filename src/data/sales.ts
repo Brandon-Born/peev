@@ -1,38 +1,124 @@
-import { addDoc, collection, doc, runTransaction, serverTimestamp } from 'firebase/firestore'
+import { addDoc, collection, doc, getDoc, runTransaction, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../modules/firebase'
 
-export async function recordSaleTransaction(params: { inventoryId: string; quantitySold: number; pricePerItemCents: number; saleDate?: Date }) {
+interface SaleItemData {
+	inventoryId: string
+	quantitySold: number
+	pricePerItemCents: number
+}
+
+interface TransactionData {
+	items: SaleItemData[]
+	customerName?: string
+	tax?: number // cents
+	discount?: number // cents
+}
+
+export async function recordSaleTransaction(data: TransactionData) {
 	const uid = auth.currentUser?.uid
 	if (!uid) throw new Error('Not authenticated')
-	const { inventoryId, quantitySold, pricePerItemCents } = params
-	if (quantitySold <= 0) throw new Error('Quantity must be > 0')
-	if (pricePerItemCents < 0) throw new Error('Price must be >= 0')
 
-	const inventoryRef = doc(db, 'inventory', inventoryId)
+	if (data.items.length === 0) {
+		throw new Error('Transaction must contain at least one item')
+	}
 
-	await runTransaction(db, async (tx) => {
-		const invSnap = await tx.get(inventoryRef)
-		if (!invSnap.exists()) throw new Error('Inventory item not found')
-		const inv = invSnap.data() as any
-		if (inv.ownerUid !== uid) throw new Error('Forbidden')
-		const currentStock: number = inv.currentStock ?? 0
-		if (currentStock < quantitySold) throw new Error('Insufficient stock')
+	await runTransaction(db, async (transaction) => {
+		// 1. Read and validate all inventory documents
+		const inventoryUpdates: Array<{ ref: any; currentStock: number; newStock: number }> = []
+		let subtotal = 0
 
-		// Decrement stock
-		tx.update(inventoryRef, { currentStock: currentStock - quantitySold, updatedAt: serverTimestamp() })
+		for (const item of data.items) {
+			const inventoryRef = doc(db, 'inventory', item.inventoryId)
+			const inventorySnap = await transaction.get(inventoryRef)
+			
+			if (!inventorySnap.exists()) {
+				throw new Error(`Inventory not found: ${item.inventoryId}`)
+			}
+			
+			const inventory = inventorySnap.data()
 
-		// Create sale
-		const saleRef = doc(collection(db, 'sales'))
-		tx.set(saleRef, {
-			inventoryId,
-			quantitySold,
-			pricePerItem: pricePerItemCents,
-			saleDate: params.saleDate ?? new Date(),
+			// Check ownership
+			if (inventory.ownerUid !== uid) {
+				throw new Error('Not authorized')
+			}
+
+			// Check sufficient stock
+			if (inventory.currentStock < item.quantitySold) {
+				throw new Error(`Insufficient stock for item. Available: ${inventory.currentStock}, Requested: ${item.quantitySold}`)
+			}
+
+			inventoryUpdates.push({
+				ref: inventoryRef,
+				currentStock: inventory.currentStock,
+				newStock: inventory.currentStock - item.quantitySold
+			})
+
+			subtotal += item.pricePerItemCents * item.quantitySold
+		}
+
+		// 2. Calculate totals
+		const tax = data.tax || 0
+		const discount = data.discount || 0
+		const total = subtotal + tax - discount
+
+		// 3. Create transaction document
+		const transactionsRef = collection(db, 'transactions')
+		const transactionData = {
+			saleDate: serverTimestamp(),
+			customerName: data.customerName || null,
+			subtotal,
+			tax: tax || null,
+			discount: discount || null,
+			total,
 			ownerUid: uid,
 			createdAt: serverTimestamp(),
 			updatedAt: serverTimestamp(),
-		})
+		}
+		const transactionRef = doc(transactionsRef)
+		transaction.set(transactionRef, transactionData)
+
+		// 4. Create sale items
+		const saleItemsRef = collection(db, 'saleItems')
+		for (const item of data.items) {
+			const lineTotal = item.pricePerItemCents * item.quantitySold
+			const saleItemData = {
+				transactionId: transactionRef.id,
+				inventoryId: item.inventoryId,
+				quantitySold: item.quantitySold,
+				pricePerItem: item.pricePerItemCents,
+				lineTotal,
+				ownerUid: uid,
+				createdAt: serverTimestamp(),
+				updatedAt: serverTimestamp(),
+			}
+			const saleItemRef = doc(saleItemsRef)
+			transaction.set(saleItemRef, saleItemData)
+		}
+
+		// 5. Update inventory stock
+		for (const update of inventoryUpdates) {
+			transaction.update(update.ref, {
+				currentStock: update.newStock,
+				updatedAt: serverTimestamp(),
+			})
+		}
 	})
 }
 
+// Legacy function for backward compatibility during migration
+interface LegacySaleTransactionData {
+	inventoryId: string
+	quantitySold: number
+	pricePerItemCents: number
+}
 
+export async function recordLegacySaleTransaction(data: LegacySaleTransactionData) {
+	// Convert to new format and call main function
+	await recordSaleTransaction({
+		items: [{
+			inventoryId: data.inventoryId,
+			quantitySold: data.quantitySold,
+			pricePerItemCents: data.pricePerItemCents
+		}]
+	})
+}

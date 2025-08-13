@@ -1,0 +1,47 @@
+// Firestore Security Rules for P.I.T.A.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isOwner() { return signedIn() && request.auth.uid == resource.data.ownerUid; }
+    function isOwnerOnCreate() { return signedIn() && request.resource.data.ownerUid == request.auth.uid; }
+
+    match /shipments/{id} {
+      allow read, update, delete: if isOwner();
+      allow create: if isOwnerOnCreate();
+    }
+    
+    match /productCategories/{id} {
+      allow read, update, delete: if isOwner();
+      allow create: if isOwnerOnCreate();
+    }
+    
+    match /products/{id} {
+      allow read, update, delete: if isOwner();
+      allow create: if isOwnerOnCreate();
+    }
+    
+    match /inventory/{id} {
+      allow read, update, delete: if isOwner();
+      allow create: if isOwnerOnCreate();
+    }
+    
+    // Legacy sales collection (keep for backward compatibility)
+    match /sales/{id} {
+      allow read, update, delete: if isOwner();
+      allow create: if isOwnerOnCreate();
+    }
+    
+    // NEW: Multi-item transactions
+    match /transactions/{id} {
+      allow read, update, delete: if isOwner();
+      allow create: if isOwnerOnCreate();
+    }
+    
+    // NEW: Sale items (line items within transactions)
+    match /saleItems/{id} {
+      allow read, update, delete: if isOwner();
+      allow create: if isOwnerOnCreate();
+    }
+  }
+}
