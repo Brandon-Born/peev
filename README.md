@@ -2,6 +2,8 @@
 
 P.I.T.A. is a full-featured inventory and sales tracking web application built with React and Firebase, designed specifically for liquidated inventory workflows. It was created for my wife and for our small business as a labor of love — Freyr and Sons LLC (https://www.freyrandsons.com).
 
+View the live site: [pita.freyrandsons.com](https://pita.freyrandsons.com).
+
 - Live stack: React + Vite + TypeScript, Material UI, TanStack Query, React Hook Form + Zod
 - Backend: Firebase Auth (Google Sign-In), Firestore (native)
 - Hosting: Vercel
