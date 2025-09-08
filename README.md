@@ -30,6 +30,21 @@ PEEV is a full-featured team-based inventory and sales tracking web application 
 - **Mobile-Responsive**: Works great on phones for on-the-go inventory management
 - **Expiration Alerts**: Visual highlighting for products nearing expiration
 
+### 📧 **Automated Email Notifications**
+- **Daily Expiration Alerts**: Automated emails sent to all team members
+- **30-Day Lookahead**: Proactive notifications for items expiring within 30 days
+- **Detailed Information**: Product names, locations, quantities, and urgency levels
+- **Team-Based**: Each team receives alerts only for their inventory
+- **Smart Filtering**: Only alerts for items still in stock
+
+### 👥 **Advanced Team Management**
+- **All Members Have Admin Privileges**: Any team member can invite or remove others
+- **Email-Based Invitations**: Team members can invite new members by email address  
+- **Member Overview**: View all team members with roles and contact information
+- **Owner Protection**: Team owners cannot be removed by other members
+- **User-Friendly Interface**: Mobile-responsive team management dashboard
+- **Secure Member Removal**: Safe removal process with confirmation dialogs
+
 ## Live Tech Stack
 
 - **Frontend**: React 18 + Vite + TypeScript, Material UI, TanStack Query, React Hook Form + Zod
@@ -40,6 +55,7 @@ PEEV is a full-featured team-based inventory and sales tracking web application 
 ## Documentation
 
 - **Project Plan & Architecture**: [`documentation/project-plan.md`](./documentation/project-plan.md)
+- **Environment Setup Guide**: [`SETUP.md`](./SETUP.md) - **Firebase Admin SDK, Resend, and Vercel configuration**
 - **Legacy Documentation**: [`documentation/legacy-project-plan.md`](./documentation/legacy-project-plan.md)
 
 ## Enhanced Data Model (Team-Based Firestore)
@@ -202,9 +218,9 @@ This codebase has been transformed from the original P.I.T.A. liquidated invento
 
 ## Future Enhancements
 
-Planned improvements include:
-- **Phase 3**: Automated email notifications for expiring inventory
-- **Phase 4**: Enhanced team management UI
+Recent additions and planned improvements:
+- ✅ **Phase 3**: Automated email notifications for expiring inventory *(Now Live!)*
+- ✅ **Phase 4**: Enhanced team management UI *(Now Live!)*
 - **Export Features**: CSV reports for accounting systems
 - **Advanced Analytics**: Trend analysis and forecasting
 - **Mobile App**: Native mobile companion

@@ -178,4 +178,188 @@ export async function getUserProfile(uid?: string): Promise<(User & { id: string
 	return { id: snap.id, ...snap.data() } as User & { id: string }
 }
 
+// Team member management functions
+export async function getTeamDetails(teamId: string): Promise<{ team: any; members: Array<User & { id: string }> } | null> {
+	try {
+		// Get team document
+		const teamRef = doc(db, 'teams', teamId)
+		const teamSnap = await getDoc(teamRef)
+		
+		if (!teamSnap.exists()) {
+			return null
+		}
+		
+		const teamData = teamSnap.data()
+		const memberIds = teamData.members || []
+		
+		// Get all member profiles
+		const members: Array<User & { id: string }> = []
+		for (const memberId of memberIds) {
+			const memberProfile = await getUserProfile(memberId)
+			if (memberProfile) {
+				members.push(memberProfile)
+			}
+		}
+		
+		return {
+			team: { id: teamSnap.id, ...teamData },
+			members
+		}
+	} catch (error) {
+		console.error('Error getting team details:', error)
+		return null
+	}
+}
+
+export async function inviteTeamMember(email: string): Promise<{ success: boolean; message: string }> {
+	try {
+		const uid = requireUid()
+		
+		// Get current user's profile to find their team
+		const userProfile = await getUserProfile(uid)
+		if (!userProfile?.teamId) {
+			return { success: false, message: 'You are not assigned to a team' }
+		}
+		
+		// Get team details to verify ownership
+		const teamRef = doc(db, 'teams', userProfile.teamId)
+		const teamSnap = await getDoc(teamRef)
+		
+		if (!teamSnap.exists()) {
+			return { success: false, message: 'Team not found' }
+		}
+		
+		const teamData = teamSnap.data()
+		
+		// All team members have admin privileges - verify user is a team member
+		const existingMembers = teamData.members || []
+		if (!existingMembers.includes(uid)) {
+			return { success: false, message: 'You must be a team member to invite new members' }
+		}
+		
+		// Find user by email
+		const usersQuery = query(collection(db, 'users'), where('email', '==', email))
+		const usersSnap = await getDocs(usersQuery)
+		
+		if (usersSnap.empty) {
+			return { success: false, message: 'No user found with this email address. They need to sign up for PEEV first.' }
+		}
+		
+		const targetUser = usersSnap.docs[0]
+		const targetUserId = targetUser.id
+		const targetUserData = targetUser.data()
+		
+		// Check if user is already a member
+		if (existingMembers.includes(targetUserId)) {
+			return { success: false, message: 'This user is already a member of your team' }
+		}
+		
+		// Check if user is already in another team
+		if (targetUserData.teamId && targetUserData.teamId !== userProfile.teamId) {
+			return { success: false, message: 'This user is already a member of another team' }
+		}
+		
+		// Add user to team members array
+		const updatedMembers = [...existingMembers, targetUserId]
+		
+		// Update team document
+		await updateDoc(teamRef, {
+			members: updatedMembers,
+			updatedAt: nowTimestamp()
+		})
+		
+		// Update user's profile with team information
+		const userRef = doc(db, 'users', targetUserId)
+		await updateDoc(userRef, {
+			teamId: userProfile.teamId,
+			teamName: teamData.name,
+			updatedAt: nowTimestamp()
+		})
+		
+		return { 
+			success: true, 
+			message: `Successfully added ${targetUserData.displayName || email} to your team!` 
+		}
+		
+	} catch (error: any) {
+		console.error('Error inviting team member:', error)
+		return { 
+			success: false, 
+			message: `Failed to invite member: ${error.message}` 
+		}
+	}
+}
+
+export async function removeTeamMember(memberId: string): Promise<{ success: boolean; message: string }> {
+	try {
+		const uid = requireUid()
+		
+		// Get current user's profile to find their team
+		const userProfile = await getUserProfile(uid)
+		if (!userProfile?.teamId) {
+			return { success: false, message: 'You are not assigned to a team' }
+		}
+		
+		// Get team details to verify ownership
+		const teamRef = doc(db, 'teams', userProfile.teamId)
+		const teamSnap = await getDoc(teamRef)
+		
+		if (!teamSnap.exists()) {
+			return { success: false, message: 'Team not found' }
+		}
+		
+		const teamData = teamSnap.data()
+		
+		// All team members have admin privileges - verify user is a team member
+		const existingMembers = teamData.members || []
+		if (!existingMembers.includes(uid)) {
+			return { success: false, message: 'You must be a team member to remove members' }
+		}
+		
+		// Can't remove yourself
+		if (memberId === uid) {
+			return { success: false, message: 'You cannot remove yourself from the team' }
+		}
+		
+		// Can't remove the team owner
+		if (memberId === teamData.ownerUid) {
+			return { success: false, message: 'The team owner cannot be removed' }
+		}
+		
+		// Check if user is actually a member
+		if (!existingMembers.includes(memberId)) {
+			return { success: false, message: 'User is not a member of this team' }
+		}
+		
+		// Remove user from team members array
+		const updatedMembers = existingMembers.filter((id: string) => id !== memberId)
+		
+		// Update team document
+		await updateDoc(teamRef, {
+			members: updatedMembers,
+			updatedAt: nowTimestamp()
+		})
+		
+		// Clear user's team information
+		const userRef = doc(db, 'users', memberId)
+		await updateDoc(userRef, {
+			teamId: null,
+			teamName: null,
+			updatedAt: nowTimestamp()
+		})
+		
+		return { 
+			success: true, 
+			message: 'Team member removed successfully' 
+		}
+		
+	} catch (error: any) {
+		console.error('Error removing team member:', error)
+		return { 
+			success: false, 
+			message: `Failed to remove member: ${error.message}` 
+		}
+	}
+}
+
 

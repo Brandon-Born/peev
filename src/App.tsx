@@ -6,6 +6,7 @@ import { ReportsPage } from './pages/ReportsPage'
 import { GlossaryPage } from './pages/GlossaryPage'
 import { LoginPage } from './pages/LoginPage'
 import { OnboardingPage } from './pages/OnboardingPage'
+import { TeamPage } from './pages/TeamPage'
 import { ProtectedRoute } from './modules/auth/ProtectedRoute'
 import { AppLayout } from './layouts/AppLayout'
 
@@ -67,6 +68,16 @@ export default function App() {
 					<ProtectedRoute>
 						<AppLayout>
 							<GlossaryPage />
+						</AppLayout>
+					</ProtectedRoute>
+				}
+			/>
+			<Route
+				path="/team"
+				element={
+					<ProtectedRoute>
+						<AppLayout>
+							<TeamPage />
 						</AppLayout>
 					</ProtectedRoute>
 				}

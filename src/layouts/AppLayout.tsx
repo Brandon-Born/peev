@@ -27,6 +27,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 						<MenuItem component={RouterLink} to="/inventory" onClick={handleClose}>Inventory</MenuItem>
 						<MenuItem component={RouterLink} to="/sales" onClick={handleClose}>Sales</MenuItem>
 						<MenuItem component={RouterLink} to="/reports" onClick={handleClose}>Reports</MenuItem>
+						<MenuItem component={RouterLink} to="/team" onClick={handleClose}>Team</MenuItem>
 						<MenuItem component={RouterLink} to="/glossary" onClick={handleClose}>Glossary</MenuItem>
 					</Menu>
 					<Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>

@@ -125,8 +125,8 @@ export function calculateCOGSForDateRange(
 	saleItems: SaleItem[],
 	legacySales: LegacySale[],
 	inventoryItems: InventoryItem[],
-	_shipments?: any[], // Keep for compatibility but ignore
-	transactions: any[], // We need transactions to get sale dates for saleItems
+	_shipments: any[] = [], // Keep for compatibility but ignore
+	transactions: any[] = [], // We need transactions to get sale dates for saleItems
 	startDate: Date,
 	endDate: Date
 ): number {
