@@ -19,7 +19,7 @@ export function useColorMode(): ColorModeContextValue {
 export function AppThemeProvider({ children }: { children: React.ReactNode }) {
 	const [mode, setMode] = React.useState<ColorMode>(() => {
 		if (typeof window === 'undefined') return 'light'
-		const stored = window.localStorage.getItem('pita-color-mode') as ColorMode | null
+		const stored = window.localStorage.getItem('peev-color-mode') as ColorMode | null
 		return stored ?? 'light'
 	})
 
@@ -27,7 +27,7 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
 		setMode((prev) => {
 			const next = prev === 'light' ? 'dark' : 'light'
 			if (typeof window !== 'undefined') {
-				window.localStorage.setItem('pita-color-mode', next)
+				window.localStorage.setItem('peev-color-mode', next)
 			}
 			return next
 		})

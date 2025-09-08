@@ -17,7 +17,7 @@ export function LoginPage() {
 	return (
 		<div style={{ display: 'grid', placeItems: 'center', minHeight: '60vh' }}>
 			<div style={{ textAlign: 'center' }}>
-				<h2>Sign in to P.I.T.A.</h2>
+				<h2>Sign in to PEEV</h2>
 				<p>Use your Google account to continue.</p>
 				<button onClick={signInWithGoogle}>Sign in with Google</button>
 			</div>

@@ -30,7 +30,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 						<MenuItem component={RouterLink} to="/glossary" onClick={handleClose}>Glossary</MenuItem>
 					</Menu>
 					<Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-						P.I.T.A.
+						PEEV
 					</Typography>
 					<IconButton color="inherit" onClick={toggleMode} sx={{ mr: 1 }} aria-label="toggle theme">
 						{mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}

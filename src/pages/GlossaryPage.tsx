@@ -45,7 +45,7 @@ const glossaryTerms: GlossaryTerm[] = [
 	},
 	{
 		term: 'P&L (Profit & Loss)',
-		definition: 'A financial statement showing revenue, costs, and profit over a specific period. In P.I.T.A., this focuses on gross profit calculations.',
+		definition: 'A financial statement showing revenue, costs, and profit over a specific period. In PEEV, this focuses on vending machine gross profit calculations.',
 		example: 'Monthly P&L: Revenue $2,000 - COGS $800 = Gross Profit $1,200 (60% margin).',
 		category: 'Financial'
 	},
@@ -103,7 +103,7 @@ const glossaryTerms: GlossaryTerm[] = [
 	},
 	{
 		term: 'Legacy Sales',
-		definition: 'Single-item sales from before P.I.T.A. supported multi-item transactions. These are maintained for historical data.',
+		definition: 'Single-item sales from before PEEV supported multi-item transactions. These are maintained for historical data.',
 		example: 'Old sales records that contained only one product per sale transaction.',
 		category: 'Operations'
 	},
@@ -171,7 +171,7 @@ export function GlossaryPage() {
 			<Box>
 				<Typography variant="h4" gutterBottom>Business Glossary</Typography>
 				<Typography variant="body1" color="text.secondary">
-					Essential terms and metrics used in P.I.T.A. to help you understand your liquidation business finances and operations.
+					Essential terms and metrics used in PEEV to help you understand your vending machine business finances and operations.
 				</Typography>
 			</Box>
 
@@ -255,7 +255,7 @@ export function GlossaryPage() {
 					<strong>Success Metric:</strong> Higher gross margin percentage = more profitable business
 				</Typography>
 				<Typography variant="body2">
-					<strong>WAC Method:</strong> P.I.T.A. uses Weighted Average Cost to ensure accurate COGS calculations for liquidated inventory with mixed item costs.
+					<strong>Per-Unit Method:</strong> PEEV uses per-unit cost calculations to ensure accurate COGS for vending machine inventory with direct purchase tracking.
 				</Typography>
 			</Paper>
 		</Stack>
