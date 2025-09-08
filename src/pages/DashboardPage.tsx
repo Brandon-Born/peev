@@ -1,23 +1,40 @@
 import { Typography, Stack, Paper, Grid } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
-import { listByOwner, toDate } from '../data/firestore'
-import { InventoryItem, Transaction, SaleItem, LegacySale, Shipment } from '../domain/models'
+import { listByTeam, toDate } from '../data/firestore'
+import { InventoryItem, Transaction, SaleItem, LegacySale } from '../domain/models'
+import { useAuth } from '../modules/auth/AuthContext'
 import React from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { formatCurrency } from '../utils/format'
 import { calculateTotalCOGS, calculateCOGSForDateRange } from '../utils/cogs'
 
 export function DashboardPage() {
+	const { team } = useAuth()
 	const now = React.useMemo(() => new Date(), [])
 	const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 	const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
 
-	// Data queries
-	const transactionsQuery = useQuery({ queryKey: ['transactions'], queryFn: () => listByOwner<Transaction>('transactions') })
-	const saleItemsQuery = useQuery({ queryKey: ['saleItems'], queryFn: () => listByOwner<SaleItem>('saleItems') })
-	const legacySalesQuery = useQuery({ queryKey: ['sales'], queryFn: () => listByOwner<LegacySale>('sales') })
-	const inventoryQuery = useQuery({ queryKey: ['inventory'], queryFn: () => listByOwner<InventoryItem>('inventory') })
-	const shipmentsQuery = useQuery({ queryKey: ['shipments'], queryFn: () => listByOwner<Shipment>('shipments') })
+	// Data queries - now team-based
+	const transactionsQuery = useQuery({ 
+		queryKey: ['transactions', team?.id], 
+		queryFn: () => team?.id ? listByTeam<Transaction>('transactions', team.id) : Promise.resolve([]),
+		enabled: !!team?.id
+	})
+	const saleItemsQuery = useQuery({ 
+		queryKey: ['saleItems', team?.id], 
+		queryFn: () => team?.id ? listByTeam<SaleItem>('saleItems', team.id) : Promise.resolve([]),
+		enabled: !!team?.id
+	})
+	const legacySalesQuery = useQuery({ 
+		queryKey: ['sales', team?.id], 
+		queryFn: () => team?.id ? listByTeam<LegacySale>('sales', team.id) : Promise.resolve([]),
+		enabled: !!team?.id
+	})
+	const inventoryQuery = useQuery({ 
+		queryKey: ['inventory', team?.id], 
+		queryFn: () => team?.id ? listByTeam<InventoryItem>('inventory', team.id) : Promise.resolve([]),
+		enabled: !!team?.id
+	})
 
 	// Calculate revenue from new transactions
 	const transactionRevenueAll = (transactionsQuery.data || []).reduce((sum, t) => sum + (t.total || 0), 0)
@@ -43,33 +60,33 @@ export function DashboardPage() {
 	const revenueAll = transactionRevenueAll + legacyRevenueAll
 	const revenueMonth = transactionRevenueMonth + legacyRevenueMonth
 
-	// COGS calculations
+	// COGS calculations - updated for new inventory model
 	const cogsAll = React.useMemo(() => {
-		if (!saleItemsQuery.data || !legacySalesQuery.data || !inventoryQuery.data || !shipmentsQuery.data) {
+		if (!saleItemsQuery.data || !legacySalesQuery.data || !inventoryQuery.data) {
 			return 0
 		}
 		return calculateTotalCOGS(
 			saleItemsQuery.data,
 			legacySalesQuery.data,
 			inventoryQuery.data,
-			shipmentsQuery.data
+			[] // Empty array for shipments since we no longer use them
 		)
-	}, [saleItemsQuery.data, legacySalesQuery.data, inventoryQuery.data, shipmentsQuery.data])
+	}, [saleItemsQuery.data, legacySalesQuery.data, inventoryQuery.data])
 
 	const cogsMonth = React.useMemo(() => {
-		if (!saleItemsQuery.data || !legacySalesQuery.data || !inventoryQuery.data || !shipmentsQuery.data || !transactionsQuery.data) {
+		if (!saleItemsQuery.data || !legacySalesQuery.data || !inventoryQuery.data || !transactionsQuery.data) {
 			return 0
 		}
 		return calculateCOGSForDateRange(
 			saleItemsQuery.data,
 			legacySalesQuery.data,
 			inventoryQuery.data,
-			shipmentsQuery.data,
+			[], // Empty array for shipments since we no longer use them
 			transactionsQuery.data,
 			startOfMonth,
 			endOfMonth
 		)
-	}, [saleItemsQuery.data, legacySalesQuery.data, inventoryQuery.data, shipmentsQuery.data, transactionsQuery.data, startOfMonth, endOfMonth])
+	}, [saleItemsQuery.data, legacySalesQuery.data, inventoryQuery.data, transactionsQuery.data, startOfMonth, endOfMonth])
 
 	// Gross Profit calculations
 	const grossProfitAll = revenueAll - cogsAll

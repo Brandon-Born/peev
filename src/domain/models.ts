@@ -1,19 +1,31 @@
 import { z } from 'zod'
 
-export const ShipmentSchema = z.object({
+// NEW: Team schema for PEEV
+export const TeamSchema = z.object({
 	name: z.string().min(1),
-	purchaseDate: z.date(),
-	totalCost: z.number().int().nonnegative(), // cents
-	supplier: z.string().optional(),
 	ownerUid: z.string(),
+	members: z.array(z.string()), // Array of UIDs, all members have admin privileges
 	createdAt: z.any().optional(),
 	updatedAt: z.any().optional(),
 })
-export type Shipment = z.infer<typeof ShipmentSchema> & { id: string }
+export type Team = z.infer<typeof TeamSchema> & { id: string }
+
+// NEW: User schema for PEEV  
+export const UserSchema = z.object({
+	displayName: z.string(),
+	email: z.string().email(),
+	teamId: z.string(),
+	teamName: z.string(),
+	createdAt: z.any().optional(),
+	updatedAt: z.any().optional(),
+})
+export type User = z.infer<typeof UserSchema> & { id: string }
+
+// REMOVED: Shipment concept eliminated - purchase info now directly in inventory
 
 export const ProductCategorySchema = z.object({
 	name: z.string().min(1),
-	ownerUid: z.string(),
+	teamId: z.string(), // CHANGED: from ownerUid to teamId
 	createdAt: z.any().optional(),
 	updatedAt: z.any().optional(),
 })
@@ -24,7 +36,9 @@ export const ProductSchema = z.object({
 	categoryId: z.string().min(1),
 	sku: z.string().optional(),
 	description: z.string().optional(),
-	ownerUid: z.string(),
+	unitSize: z.string().optional(), // NEW: e.g., "12oz Can", "1.5oz Bag"
+	packSize: z.number().int().nonnegative().optional(), // NEW: e.g., 32
+	teamId: z.string(), // CHANGED: from ownerUid to teamId
 	createdAt: z.any().optional(),
 	updatedAt: z.any().optional(),
 })
@@ -32,10 +46,17 @@ export type Product = z.infer<typeof ProductSchema> & { id: string }
 
 export const InventorySchema = z.object({
 	productId: z.string().min(1),
-	shipmentId: z.string().min(1),
-	initialQuantity: z.number().int().nonnegative(),
-	currentStock: z.number().int().nonnegative(),
-	ownerUid: z.string(),
+	// REMOVED: shipmentId - purchase info now directly included
+	purchaseDate: z.date(), // When you bought this at the store
+	totalCost: z.number().int().nonnegative(), // Total cost for this purchase (in cents)
+	supplier: z.string().optional(), // Store name: "Costco", "Sam's Club", etc.
+	purchaseQuantity: z.number().int().positive(), // How many packs you bought (e.g., 1)
+	unitsPerPack: z.number().int().positive(), // Sellable units per pack (e.g., 24 cans)
+	initialQuantity: z.number().int().nonnegative(), // Total sellable units (purchaseQuantity × unitsPerPack)
+	currentStock: z.number().int().nonnegative(), // Current sellable units available
+	expirationDate: z.date().optional(), // When the product expires
+	location: z.string().optional(), // Which vending machine location
+	teamId: z.string(), // Team ownership
 	createdAt: z.any().optional(),
 	updatedAt: z.any().optional(),
 })
@@ -48,7 +69,7 @@ export const TransactionSchema = z.object({
 	tax: z.number().int().nonnegative().optional(), // cents
 	discount: z.number().int().nonnegative().optional(), // cents
 	total: z.number().int().nonnegative(), // cents
-	ownerUid: z.string(),
+	teamId: z.string(), // CHANGED: from ownerUid to teamId
 	createdAt: z.any().optional(),
 	updatedAt: z.any().optional(),
 })
@@ -60,7 +81,7 @@ export const SaleItemSchema = z.object({
 	quantitySold: z.number().int().positive(),
 	pricePerItem: z.number().int().nonnegative(), // cents
 	lineTotal: z.number().int().nonnegative(), // cents (quantitySold * pricePerItem)
-	ownerUid: z.string(),
+	teamId: z.string(), // CHANGED: from ownerUid to teamId
 	createdAt: z.any().optional(),
 	updatedAt: z.any().optional(),
 })
@@ -72,7 +93,7 @@ export const LegacySaleSchema = z.object({
 	quantitySold: z.number().int().positive(),
 	pricePerItem: z.number().int().nonnegative(), // cents
 	saleDate: z.date(),
-	ownerUid: z.string(),
+	teamId: z.string(), // CHANGED: from ownerUid to teamId
 	createdAt: z.any().optional(),
 	updatedAt: z.any().optional(),
 })

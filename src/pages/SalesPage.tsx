@@ -11,9 +11,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { listByOwner, deleteById, toDate } from '../data/firestore'
+import { listByTeam, deleteById, toDate } from '../data/firestore'
+import { useAuth } from '../modules/auth/AuthContext'
 import { ConfirmDialog } from '../components/ConfirmDialog'
-import { InventoryItem, Product, Shipment, Transaction, SaleItem, LegacySale } from '../domain/models'
+import { InventoryItem, Product, Transaction, SaleItem, LegacySale } from '../domain/models'
 import { recordSaleTransaction } from '../data/sales'
 import { formatCurrency } from '../utils/format'
 
@@ -35,13 +36,33 @@ const transactionFormSchema = z.object({
 type TransactionForm = z.infer<typeof transactionFormSchema>
 
 export function SalesPage() {
+	const { team } = useAuth()
 	const qc = useQueryClient()
-	const productsQuery = useQuery({ queryKey: ['products'], queryFn: () => listByOwner<Product>('products') })
-	const inventoryQuery = useQuery({ queryKey: ['inventory'], queryFn: () => listByOwner<InventoryItem>('inventory') })
-	const shipmentsQuery = useQuery({ queryKey: ['shipments'], queryFn: () => listByOwner<Shipment>('shipments') })
-	const transactionsQuery = useQuery({ queryKey: ['transactions'], queryFn: () => listByOwner<Transaction>('transactions') })
-	const saleItemsQuery = useQuery({ queryKey: ['saleItems'], queryFn: () => listByOwner<SaleItem>('saleItems') })
-	const legacySalesQuery = useQuery({ queryKey: ['sales'], queryFn: () => listByOwner<LegacySale>('sales') })
+	const productsQuery = useQuery({ 
+		queryKey: ['products', team?.id], 
+		queryFn: () => team?.id ? listByTeam<Product>('products', team.id) : Promise.resolve([]),
+		enabled: !!team?.id
+	})
+	const inventoryQuery = useQuery({ 
+		queryKey: ['inventory', team?.id], 
+		queryFn: () => team?.id ? listByTeam<InventoryItem>('inventory', team.id) : Promise.resolve([]),
+		enabled: !!team?.id
+	})
+	const transactionsQuery = useQuery({ 
+		queryKey: ['transactions', team?.id], 
+		queryFn: () => team?.id ? listByTeam<Transaction>('transactions', team.id) : Promise.resolve([]),
+		enabled: !!team?.id
+	})
+	const saleItemsQuery = useQuery({ 
+		queryKey: ['saleItems', team?.id], 
+		queryFn: () => team?.id ? listByTeam<SaleItem>('saleItems', team.id) : Promise.resolve([]),
+		enabled: !!team?.id
+	})
+	const legacySalesQuery = useQuery({ 
+		queryKey: ['sales', team?.id], 
+		queryFn: () => team?.id ? listByTeam<LegacySale>('sales', team.id) : Promise.resolve([]),
+		enabled: !!team?.id
+	})
 
 	const [snack, setSnack] = React.useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ 
 		open: false, message: '', severity: 'success' 
@@ -68,10 +89,6 @@ export function SalesPage() {
 	})
 
 	// Helper functions
-	const getShipmentName = (shipmentId: string) => {
-		const shipment = (shipmentsQuery.data || []).find(s => s.id === shipmentId)
-		return shipment?.name || shipmentId
-	}
 
 	const getProductName = (productId: string) => {
 		const product = (productsQuery.data || []).find(p => p.id === productId)
@@ -215,11 +232,22 @@ export function SalesPage() {
 														helperText={form.formState.errors.items?.[index]?.inventoryId?.message}
 													>
 														<option value=""></option>
-														{getAvailableInventory(form.watch(`items.${index}.productId`)).map((inv) => (
-															<option key={inv.id} value={inv.id}>
-																{getShipmentName(inv.shipmentId)} — {inv.currentStock} available
-															</option>
-														))}
+														{getAvailableInventory(form.watch(`items.${index}.productId`)).map((inv) => {
+															const purchaseDate = (inv as any).purchaseDate 
+																? new Date((inv as any).purchaseDate.toDate ? (inv as any).purchaseDate.toDate() : (inv as any).purchaseDate).toLocaleDateString()
+																: ''
+															const supplier = (inv as any).supplier || ''
+															const totalCost = ((inv as any).totalCost || 0) / 100
+															const purchaseQuantity = (inv as any).purchaseQuantity || 1
+															const unitsPerPack = (inv as any).unitsPerPack || inv.initialQuantity
+															const unitCost = totalCost / (purchaseQuantity * unitsPerPack)
+															const purchaseInfo = `${purchaseDate} ${supplier ? `from ${supplier}` : ''} ${totalCost > 0 ? `($${unitCost.toFixed(2)}/unit)` : ''}`
+															return (
+																<option key={inv.id} value={inv.id}>
+																	{purchaseInfo} — {inv.currentStock} units available
+																</option>
+															)
+														})}
 													</TextField>
 												</Grid>
 											</Grid>

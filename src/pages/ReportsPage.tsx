@@ -6,8 +6,9 @@ import {
 } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { useQuery } from '@tanstack/react-query'
-import { listByOwner, toDate } from '../data/firestore'
-import { Transaction, SaleItem, LegacySale, InventoryItem, Product, Shipment } from '../domain/models'
+import { listByTeam, toDate } from '../data/firestore'
+import { useAuth } from '../modules/auth/AuthContext'
+import { Transaction, SaleItem, LegacySale, InventoryItem, Product } from '../domain/models'
 import { formatCurrency } from '../utils/format'
 import { calculateCOGSForDateRange } from '../utils/cogs'
 
@@ -21,6 +22,7 @@ interface ProductSalesData {
 }
 
 export function ReportsPage() {
+	const { team } = useAuth()
 	const [selectedMonth, setSelectedMonth] = React.useState(() => {
 		const now = new Date()
 		return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
@@ -33,13 +35,32 @@ export function ReportsPage() {
 		return `${now.getFullYear()}-Q${quarter}`
 	})
 
-	// Data queries
-	const transactionsQuery = useQuery({ queryKey: ['transactions'], queryFn: () => listByOwner<Transaction>('transactions') })
-	const saleItemsQuery = useQuery({ queryKey: ['saleItems'], queryFn: () => listByOwner<SaleItem>('saleItems') })
-	const legacySalesQuery = useQuery({ queryKey: ['sales'], queryFn: () => listByOwner<LegacySale>('sales') })
-	const inventoryQuery = useQuery({ queryKey: ['inventory'], queryFn: () => listByOwner<InventoryItem>('inventory') })
-	const productsQuery = useQuery({ queryKey: ['products'], queryFn: () => listByOwner<Product>('products') })
-	const shipmentsQuery = useQuery({ queryKey: ['shipments'], queryFn: () => listByOwner<Shipment>('shipments') })
+	// Data queries - now team-based
+	const transactionsQuery = useQuery({ 
+		queryKey: ['transactions', team?.id], 
+		queryFn: () => team?.id ? listByTeam<Transaction>('transactions', team.id) : Promise.resolve([]),
+		enabled: !!team?.id
+	})
+	const saleItemsQuery = useQuery({ 
+		queryKey: ['saleItems', team?.id], 
+		queryFn: () => team?.id ? listByTeam<SaleItem>('saleItems', team.id) : Promise.resolve([]),
+		enabled: !!team?.id
+	})
+	const legacySalesQuery = useQuery({ 
+		queryKey: ['sales', team?.id], 
+		queryFn: () => team?.id ? listByTeam<LegacySale>('sales', team.id) : Promise.resolve([]),
+		enabled: !!team?.id
+	})
+	const inventoryQuery = useQuery({ 
+		queryKey: ['inventory', team?.id], 
+		queryFn: () => team?.id ? listByTeam<InventoryItem>('inventory', team.id) : Promise.resolve([]),
+		enabled: !!team?.id
+	})
+	const productsQuery = useQuery({ 
+		queryKey: ['products', team?.id], 
+		queryFn: () => team?.id ? listByTeam<Product>('products', team.id) : Promise.resolve([]),
+		enabled: !!team?.id
+	})
 
 	// Helper function to get product name
 	const getProductName = (productId: string) => {
@@ -147,7 +168,7 @@ export function ReportsPage() {
 
 	// Calculate quarterly tax report data
 	const quarterlyReport = React.useMemo(() => {
-		if (!transactionsQuery.data || !saleItemsQuery.data || !inventoryQuery.data || !shipmentsQuery.data) {
+		if (!transactionsQuery.data || !saleItemsQuery.data || !inventoryQuery.data) {
 			return { totalRevenue: 0, totalCOGS: 0, grossProfit: 0, grossMargin: 0, totalTransactions: 0, totalUnits: 0 }
 		}
 
@@ -181,7 +202,7 @@ export function ReportsPage() {
 			saleItemsQuery.data,
 			legacySalesQuery.data || [],
 			inventoryQuery.data,
-			shipmentsQuery.data,
+			[], // Empty array for shipments since we no longer use them
 			transactionsQuery.data,
 			startOfQuarter,
 			endOfQuarter
@@ -211,10 +232,10 @@ export function ReportsPage() {
 			startOfQuarter,
 			endOfQuarter 
 		}
-	}, [selectedQuarter, transactionsQuery.data, saleItemsQuery.data, legacySalesQuery.data, inventoryQuery.data, shipmentsQuery.data])
+	}, [selectedQuarter, transactionsQuery.data, saleItemsQuery.data, legacySalesQuery.data, inventoryQuery.data])
 
 	const isLoading = transactionsQuery.isLoading || saleItemsQuery.isLoading || 
-		legacySalesQuery.isLoading || inventoryQuery.isLoading || productsQuery.isLoading || shipmentsQuery.isLoading
+		legacySalesQuery.isLoading || inventoryQuery.isLoading || productsQuery.isLoading
 
 	return (
 		<Stack spacing={3}>
@@ -241,10 +262,14 @@ export function ReportsPage() {
 							</Grid>
 							<Grid item xs={12} sm={8}>
 								<Typography variant="h6" color="text.secondary">
-									{new Date(selectedMonth + '-01').toLocaleDateString(undefined, { 
-										month: 'long', 
-										year: 'numeric' 
-									})}
+									{(() => {
+										const [year, month] = selectedMonth.split('-').map(Number)
+										const date = new Date(year, month - 1, 1) // month is 0-indexed
+										return date.toLocaleDateString(undefined, { 
+											month: 'long', 
+											year: 'numeric' 
+										})
+									})()}
 								</Typography>
 							</Grid>
 						</Grid>

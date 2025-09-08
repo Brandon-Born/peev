@@ -1,47 +1,59 @@
-// Firestore Security Rules for P.I.T.A.
+// Firestore Security Rules for PEEV (Team-Based)
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
-    function isOwner() { return signedIn() && request.auth.uid == resource.data.ownerUid; }
-    function isOwnerOnCreate() { return signedIn() && request.resource.data.ownerUid == request.auth.uid; }
-
-    match /shipments/{id} {
-      allow read, update, delete: if isOwner();
-      allow create: if isOwnerOnCreate();
+    // Helper function to check if a user belongs to a team
+    function isTeamMember(teamId) {
+      return request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.members;
     }
     
+    function signedIn() { 
+      return request.auth != null; 
+    }
+    
+    // Team-scoped collections
     match /productCategories/{id} {
-      allow read, update, delete: if isOwner();
-      allow create: if isOwnerOnCreate();
+      allow read, write: if signedIn() && isTeamMember(resource.data.teamId);
+      allow create: if signedIn() && isTeamMember(request.resource.data.teamId);
     }
     
     match /products/{id} {
-      allow read, update, delete: if isOwner();
-      allow create: if isOwnerOnCreate();
+      allow read, write: if signedIn() && isTeamMember(resource.data.teamId);
+      allow create: if signedIn() && isTeamMember(request.resource.data.teamId);
     }
     
     match /inventory/{id} {
-      allow read, update, delete: if isOwner();
-      allow create: if isOwnerOnCreate();
+      allow read, write: if signedIn() && isTeamMember(resource.data.teamId);
+      allow create: if signedIn() && isTeamMember(request.resource.data.teamId);
     }
     
-    // Legacy sales collection (keep for backward compatibility)
-    match /sales/{id} {
-      allow read, update, delete: if isOwner();
-      allow create: if isOwnerOnCreate();
-    }
-    
-    // NEW: Multi-item transactions
     match /transactions/{id} {
-      allow read, update, delete: if isOwner();
-      allow create: if isOwnerOnCreate();
+      allow read, write: if signedIn() && isTeamMember(resource.data.teamId);
+      allow create: if signedIn() && isTeamMember(request.resource.data.teamId);
     }
     
-    // NEW: Sale items (line items within transactions)
     match /saleItems/{id} {
-      allow read, update, delete: if isOwner();
-      allow create: if isOwnerOnCreate();
+      allow read, write: if signedIn() && isTeamMember(resource.data.teamId);
+      allow create: if signedIn() && isTeamMember(request.resource.data.teamId);
+    }
+    
+    // Legacy sales collection (team-based)
+    match /sales/{id} {
+      allow read, write: if signedIn() && isTeamMember(resource.data.teamId);
+      allow create: if signedIn() && isTeamMember(request.resource.data.teamId);
+    }
+    
+    // Teams collection - only team members can read, only owner can update
+    match /teams/{teamId} {
+      allow read: if signedIn() && isTeamMember(teamId);
+      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if signedIn() && get(/databases/$(database)/documents/teams/$(teamId)).data.ownerUid == request.auth.uid;
+    }
+    
+    // User profiles - users can only read/write their own profile
+    match /users/{userId} {
+      allow read, write: if signedIn() && request.auth.uid == userId;
+      allow create: if signedIn() && request.auth.uid == userId;
     }
   }
 }

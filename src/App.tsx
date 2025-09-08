@@ -5,6 +5,7 @@ import { SalesPage } from './pages/SalesPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { GlossaryPage } from './pages/GlossaryPage'
 import { LoginPage } from './pages/LoginPage'
+import { OnboardingPage } from './pages/OnboardingPage'
 import { ProtectedRoute } from './modules/auth/ProtectedRoute'
 import { AppLayout } from './layouts/AppLayout'
 
@@ -12,6 +13,14 @@ export default function App() {
 	return (
 		<Routes>
 			<Route path="/login" element={<LoginPage />} />
+			<Route 
+				path="/onboarding" 
+				element={
+					<ProtectedRoute>
+						<OnboardingPage />
+					</ProtectedRoute>
+				} 
+			/>
 			<Route
 				path="/"
 				element={

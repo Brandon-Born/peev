@@ -1,125 +1,228 @@
-# P.I.T.A. — Panda's Integrated Tracking Assistant
+# PEEV — Profit & Expense Evaluator for Vendors
 
-P.I.T.A. is a full-featured inventory and sales tracking web application built with React and Firebase, designed specifically for liquidated inventory workflows. It was created for my wife and for our small business as a labor of love — Freyr and Sons LLC (https://www.freyrandsons.com).
+PEEV is a full-featured team-based inventory and sales tracking web application built with React and Firebase, designed specifically for vending machine operations. This system helps vending machine operators track purchases, manage inventory across multiple locations, monitor expiration dates, and analyze profitability on a per-unit basis.
 
-View the live site: [pita.freyrandsons.com](https://pita.freyrandsons.com).
+*Forked and transformed from P.I.T.A. (Panda's Integrated Tracking Assistant) to serve vending machine businesses.*
 
-- Live stack: React + Vite + TypeScript, Material UI, TanStack Query, React Hook Form + Zod
-- Backend: Firebase Auth (Google Sign-In), Firestore (native)
-- Hosting: Vercel
+## Key Features
+
+### 🏢 **Team-Based Operations**
+- Multi-user teams with shared data access
+- All team members have admin privileges to invite others
+- Google Sign-In authentication with team assignment
+
+### 📦 **Smart Inventory Management**
+- **Purchase Units vs Sellable Units**: Buy 1 pack of 24 cans, sell 24 individual cans
+- **Direct Purchase Recording**: No complex shipment tracking - record purchases directly
+- **Expiration Date Tracking**: Visual alerts for items nearing expiration
+- **Location Management**: Track which vending machine each inventory batch serves
+- **Auto-populated Purchase Dates**: Automatically set to today (editable)
+
+### 💰 **Accurate Financial Tracking**
+- **Per-Unit COGS**: Precise cost calculation for individual item sales
+- **Real-time Profit Analysis**: Revenue, COGS, and gross profit tracking
+- **Monthly & Quarterly Reports**: Detailed breakdowns by product and time period
+- **Multi-item Sales Transactions**: Handle complex vending machine restocking scenarios
+
+### 📱 **Vending-Friendly Workflows**
+- **Simplified Purchase Flow**: "I bought 1 pack of 24 cans for $24.00 at Costco"
+- **Individual Unit Sales**: Sell 1 can at a time with accurate cost tracking
+- **Mobile-Responsive**: Works great on phones for on-the-go inventory management
+- **Expiration Alerts**: Visual highlighting for products nearing expiration
+
+## Live Tech Stack
+
+- **Frontend**: React 18 + Vite + TypeScript, Material UI, TanStack Query, React Hook Form + Zod
+- **Backend**: Firebase Auth (Google Sign-In), Firestore (team-based data)
+- **Hosting**: Vercel with serverless functions
+- **Charts**: Recharts for dashboard analytics
 
 ## Documentation
 
-- Project Plan and Architecture: [`documentation/project-plan.md`](./documentation/project-plan.md)
-- Security Verification: [`documentation/security-verification.md`](./documentation/security-verification.md)
+- **Project Plan & Architecture**: [`documentation/project-plan.md`](./documentation/project-plan.md)
+- **Legacy Documentation**: [`documentation/legacy-project-plan.md`](./documentation/legacy-project-plan.md)
 
-## Features
+## Enhanced Data Model (Team-Based Firestore)
 
-- Authentication: Google Sign-In, protected routes
-- Multi-item Sales Transactions with atomic stock decrement
-- Inventory Management
-  - Shipments CRUD
-  - Product Categories and Products CRUD
-  - Receive Inventory (by product and shipment)
-  - Inline editing and safe deletes with confirmations
-  - Mobile-friendly UI with responsive tables/cards
-- Dashboard
-  - Total Revenue, This Month Revenue
-  - COGS and Gross Profit (all-time and monthly)
-  - 12-month revenue bar chart
-- Reports
-  - Monthly Sales Report (by product: units, revenue, avg price)
-  - Quarterly Tax Report (Revenue, COGS via WAC, Gross Profit, margins)
-- Business Glossary page for terms and formulas
-- Snackbar notifications and confirm dialogs
+All collections now use `teamId` for data isolation instead of `ownerUid`:
 
-## Tech Stack
+### Core Collections
+- **`teams`**: name, ownerUid, members (array), createdAt
+- **`users`**: email, displayName, teamId, joinedAt
+- **`productCategories`**: name, teamId
+- **`products`**: name, categoryId, sku?, description?, unitSize?, packSize?, teamId
 
-- React + Vite + TypeScript
-- Material UI (MUI)
-- TanStack Query
-- React Hook Form + Zod
-- Firebase Auth (Google) + Firestore
-- Recharts (Dashboard chart)
+### Enhanced Inventory System
+```javascript
+inventory: {
+  productId: string,
+  purchaseDate: date,           // When you bought it at the store
+  totalCost: number,           // Total purchase cost (in cents)
+  supplier: string?,           // Store name (Costco, Sam's Club, etc.)
+  purchaseQuantity: number,    // Packs purchased (e.g., 1)
+  unitsPerPack: number,        // Sellable units per pack (e.g., 24)
+  initialQuantity: number,     // Total sellable units (auto-calculated)
+  currentStock: number,        // Current sellable units available
+  expirationDate: date?,       // Product expiration date
+  location: string?,           // Vending machine location
+  teamId: string
+}
+```
 
-## Data Model (Firestore)
+### Sales & Transactions
+- **`transactions`**: saleDate, customerName?, subtotal, tax?, discount?, total, teamId
+- **`saleItems`**: transactionId, inventoryId, quantitySold, pricePerItem, lineTotal, teamId
+- **`sales`** (legacy): preserved for backward compatibility
 
-Collections (all documents include `ownerUid`, `createdAt`, `updatedAt`):
-- `shipments`: name, purchaseDate, totalCost (cents), supplier?
-- `productCategories`: name
-- `products`: name, categoryId, sku?, description?
-- `inventory`: productId, shipmentId, initialQuantity, currentStock
-- `transactions`: saleDate, customerName?, subtotal, tax?, discount?, total
-- `saleItems`: transactionId, inventoryId, quantitySold, pricePerItem, lineTotal
-- `sales` (legacy single-item sales; read-only for backward compat)
+### COGS Calculation (Updated)
+**Per-Unit Cost Model:**
+```javascript
+unitCost = totalCost ÷ (purchaseQuantity × unitsPerPack)
+// Example: $24.00 ÷ (1 × 24) = $1.00 per can
+itemCOGS = unitCost × quantitySold
+```
 
-COGS uses Weighted Average Cost (WAC) per shipment:
-- `WAC = shipment.totalCost / unitsReceived`
-- `COGS per sale item = WAC * quantitySold`
+## Security Model
 
-## Security
+**Team-based access control** with Firestore security rules:
+- All operations require authentication (`request.auth != null`)
+- Data access restricted by team membership (`request.auth.uid in get(...).data.members`)
+- Team owners can manage membership
+- All members have equal data access privileges
 
-All rules require auth and enforce strict tenant isolation (`ownerUid`):
-- Reads/updates/deletes require ownership of the target document
-- Creates require `ownerUid` to match the authenticated user
+## Vending Machine Workflows
 
-See complete analysis: [`documentation/security-verification.md`](./documentation/security-verification.md)
+### 📦 **Receive Inventory**
+1. Select product (e.g., "Coke Zero 12oz")
+2. Purchase date auto-filled (today)
+3. Enter total cost ($24.00)
+4. Enter store (Costco)
+5. Enter packs purchased (1)
+6. Enter units per pack (24)
+7. Set expiration date (optional)
+8. Set location (Building A vending machine)
+
+**Result**: 24 sellable units at $1.00 per unit cost
+
+### 💵 **Record Sales**
+1. Select product and inventory batch
+2. Choose quantity sold (1 can)
+3. Enter sale price ($1.50)
+4. Record transaction
+
+**Result**: $1.50 revenue, $1.00 COGS, $0.50 gross profit
+
+### 📊 **Track Performance**
+- **Dashboard**: Real-time revenue, COGS, and profit metrics
+- **Reports**: Monthly product performance and quarterly summaries
+- **Inventory Alerts**: Visual warnings for expiring products
 
 ## Local Development
 
-1) Environment variables (use your Firebase project values):
-
+### 1. Environment Setup
 ```bash
 cp env.example .env
-# Fill in:
-# VITE_FIREBASE_API_KEY=
-# VITE_FIREBASE_AUTH_DOMAIN=
-# VITE_FIREBASE_PROJECT_ID=
-# VITE_FIREBASE_STORAGE_BUCKET=
-# VITE_FIREBASE_MESSAGING_SENDER_ID=
-# VITE_FIREBASE_APP_ID=
-# VITE_FIREBASE_MEASUREMENT_ID= # optional
+# Configure your Firebase project:
+VITE_FIREBASE_API_KEY=your_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
+VITE_FIREBASE_APP_ID=1:123456789:web:abcdef
+VITE_FIREBASE_MEASUREMENT_ID=G-ABCDEF123 # optional
 ```
 
-2) Install and run:
-
+### 2. Install & Run
 ```bash
 npm install
-npm run dev
+npm run dev        # Development server
+npm run build      # Production build
+npm run preview    # Preview build locally
 ```
 
-3) Build:
-
-```bash
-npm run build
-```
+### 3. Firebase Setup
+- Create a new Firebase project
+- Enable Authentication → Google Sign-In
+- Create Firestore database
+- Deploy security rules from `firestore-security-rules.txt`
+- Add your domain to Firebase Auth authorized domains
 
 ## Deployment (Vercel)
 
-- Connect the repo to Vercel
-- Set the same env vars from `.env` in Vercel project settings (client-side vars must start with `VITE_`)
-- Build command: `npm run build`
-- Output directory: `dist`
-- `vercel.json` includes SPA rewrite and security headers
-- Firebase Auth → Authorized domains: add `localhost`, Vercel domain(s), and any custom domain
+1. **Connect Repository**: Link your GitHub repo to Vercel
+2. **Environment Variables**: Add all Firebase config vars to Vercel project settings
+3. **Build Settings**:
+   - Build Command: `npm run build`
+   - Output Directory: `dist`
+4. **Domain Setup**: Add Vercel domain to Firebase Auth authorized domains
+
+The `vercel.json` includes SPA routing and security headers.
 
 ## Project Structure
 
 ```
 src/
-  components/         # Reusable UI components (ConfirmDialog, etc.)
-  data/               # Firestore helpers and transactional sales logic
-  domain/             # Zod schemas and TypeScript types
-  layouts/            # App layout (AppBar, navigation, footer)
-  modules/            # Firebase init, Auth context, route protection
-  pages/              # Dashboard, Inventory, Sales, Reports, Login, Glossary
-  utils/              # Formatting helpers, COGS calculations
+├── components/          # Reusable UI (ConfirmDialog, etc.)
+├── data/               # Firestore helpers and sales transactions
+│   ├── firestore.ts    # Team-based data operations
+│   └── sales.ts        # Transaction recording logic
+├── domain/             # Zod schemas and TypeScript types
+│   └── models.ts       # Enhanced data models
+├── layouts/            # App layout and navigation
+├── modules/            # Firebase, Auth context, route protection
+│   └── auth/           # Team-based authentication
+├── pages/              # Core application pages
+│   ├── DashboardPage.tsx    # Analytics and metrics
+│   ├── InventoryPage.tsx    # Purchase and inventory management
+│   ├── SalesPage.tsx        # Individual unit sales
+│   ├── ReportsPage.tsx      # Monthly and quarterly reports
+│   ├── LoginPage.tsx        # Authentication
+│   ├── OnboardingPage.tsx   # Team creation/joining
+│   └── GlossaryPage.tsx     # Business terms reference
+└── utils/              # COGS calculations and formatting
+    └── cogs.ts         # Updated per-unit cost calculations
 ```
 
-## Notes & Acknowledgements
+## Migration from P.I.T.A.
 
-- Built as a practical tool for our small business, Freyr and Sons LLC.
-- Focused on clarity, performance, and data correctness (no oversell, accurate COGS).
-- Designed to be maintainable and extensible (future: CSV export, filters, roles, Cloud Functions guards).
+This codebase has been transformed from the original P.I.T.A. liquidated inventory system:
 
-If you have questions or suggestions, feel free to open an issue or PR. Thank you for checking out P.I.T.A.! ❤️
+### Major Changes
+- **Team-based**: Multi-user shared data instead of single-user isolation
+- **Vending-focused**: Optimized for vending machine operations vs liquidated goods
+- **Simplified purchases**: Direct inventory recording without shipment complexity
+- **Unit tracking**: Proper separation of purchase units vs sellable units
+- **Enhanced inventory**: Expiration dates and location tracking
+- **Updated COGS**: Per-unit calculations instead of weighted average cost
+
+### Legacy Support
+- Original single-user data remains in legacy collections
+- Backward compatibility maintained for existing sales data
+- COGS calculations handle both new and legacy data models
+
+## Future Enhancements
+
+Planned improvements include:
+- **Phase 3**: Automated email notifications for expiring inventory
+- **Phase 4**: Enhanced team management UI
+- **Export Features**: CSV reports for accounting systems
+- **Advanced Analytics**: Trend analysis and forecasting
+- **Mobile App**: Native mobile companion
+
+## Contributing
+
+This system was built as a practical solution for vending machine operators. If you find it useful for your business or want to contribute improvements, feel free to:
+
+- Open issues for bugs or feature requests
+- Submit pull requests with enhancements
+- Share feedback on the vending machine workflows
+
+## Acknowledgments
+
+- **Original P.I.T.A. System**: Built by Freyr and Sons LLC for liquidated inventory management
+- **PEEV Transformation**: Enhanced for team-based vending machine operations
+- **Focus**: Accuracy, usability, and real-world business needs
+
+---
+
+**PEEV** - Making vending machine inventory management simple, accurate, and profitable! 🥤📊

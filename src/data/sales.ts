@@ -1,5 +1,6 @@
 import { collection, doc, runTransaction, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../modules/firebase'
+import { getUserProfile } from './firestore'
 
 interface SaleItemData {
 	inventoryId: string
@@ -22,6 +23,12 @@ export async function recordSaleTransaction(data: TransactionData) {
 		throw new Error('Transaction must contain at least one item')
 	}
 
+	// Get user's team
+	const userProfile = await getUserProfile(uid)
+	if (!userProfile?.teamId) {
+		throw new Error('User not assigned to a team')
+	}
+
 	await runTransaction(db, async (transaction) => {
 		// 1. Read and validate all inventory documents
 		const inventoryUpdates: Array<{ ref: any; currentStock: number; newStock: number }> = []
@@ -37,8 +44,8 @@ export async function recordSaleTransaction(data: TransactionData) {
 			
 			const inventory = inventorySnap.data()
 
-			// Check ownership
-			if (inventory.ownerUid !== uid) {
+			// Check team ownership
+			if (inventory.teamId !== userProfile.teamId) {
 				throw new Error('Not authorized')
 			}
 
@@ -70,7 +77,7 @@ export async function recordSaleTransaction(data: TransactionData) {
 			tax: tax || null,
 			discount: discount || null,
 			total,
-			ownerUid: uid,
+			teamId: userProfile.teamId,
 			createdAt: serverTimestamp(),
 			updatedAt: serverTimestamp(),
 		}
@@ -87,7 +94,7 @@ export async function recordSaleTransaction(data: TransactionData) {
 				quantitySold: item.quantitySold,
 				pricePerItem: item.pricePerItemCents,
 				lineTotal,
-				ownerUid: uid,
+				teamId: userProfile.teamId,
 				createdAt: serverTimestamp(),
 				updatedAt: serverTimestamp(),
 			}

@@ -1,11 +1,11 @@
-import { Shipment, InventoryItem, SaleItem, LegacySale } from '../domain/models'
+import { InventoryItem, SaleItem, LegacySale } from '../domain/models'
 import { toDate } from '../data/firestore'
 
 interface COGSCalculation {
 	totalCOGS: number
 	itemizedCOGS: Array<{
 		itemId: string
-		shipmentId: string
+		inventoryId: string
 		quantitySold: number
 		unitCost: number
 		itemCOGS: number
@@ -13,30 +13,31 @@ interface COGSCalculation {
 }
 
 /**
- * Calculate Weighted Average Cost (WAC) for a shipment
- * WAC = totalCost / unitsReceived
+ * Calculate unit cost for an inventory item
+ * Unit Cost = totalCost / (purchaseQuantity × unitsPerPack)
  */
-export function calculateShipmentWAC(shipment: Shipment, inventoryItems: InventoryItem[]): number {
-	// Find all inventory items for this shipment
-	const shipmentInventory = inventoryItems.filter(inv => inv.shipmentId === shipment.id)
+export function calculateInventoryUnitCost(inventory: InventoryItem): number {
+	// Get purchase information directly from inventory
+	const totalCost = (inventory as any).totalCost || 0
+	const purchaseQuantity = (inventory as any).purchaseQuantity || 1
+	const unitsPerPack = (inventory as any).unitsPerPack || inventory.initialQuantity
 	
-	// Calculate total units received for this shipment
-	const unitsReceived = shipmentInventory.reduce((sum, inv) => sum + inv.initialQuantity, 0)
+	const totalUnits = purchaseQuantity * unitsPerPack
 	
-	// If no units received, WAC is 0
-	if (unitsReceived === 0) return 0
+	// If no units, unit cost is 0
+	if (totalUnits === 0) return 0
 	
-	// WAC = totalCost / unitsReceived
-	return shipment.totalCost / unitsReceived
+	// Unit cost = totalCost / total sellable units
+	return totalCost / totalUnits
 }
 
 /**
- * Calculate COGS for sale items using WAC method
+ * Calculate COGS for sale items using direct inventory cost method
  */
 export function calculateSaleItemsCOGS(
 	saleItems: SaleItem[],
 	inventoryItems: InventoryItem[],
-	shipments: Shipment[]
+	_shipments?: any[] // Keep for compatibility but ignore
 ): COGSCalculation {
 	const itemizedCOGS: COGSCalculation['itemizedCOGS'] = []
 	let totalCOGS = 0
@@ -46,19 +47,15 @@ export function calculateSaleItemsCOGS(
 		const inventory = inventoryItems.find(inv => inv.id === item.inventoryId)
 		if (!inventory) return
 
-		// Find the shipment for this inventory
-		const shipment = shipments.find(s => s.id === inventory.shipmentId)
-		if (!shipment) return
-
-		// Calculate WAC for this shipment
-		const unitCost = calculateShipmentWAC(shipment, inventoryItems)
+		// Calculate unit cost directly from inventory purchase data
+		const unitCost = calculateInventoryUnitCost(inventory)
 		
 		// Calculate COGS for this item
 		const itemCOGS = unitCost * item.quantitySold
 
 		itemizedCOGS.push({
 			itemId: item.id,
-			shipmentId: shipment.id,
+			inventoryId: inventory.id,
 			quantitySold: item.quantitySold,
 			unitCost,
 			itemCOGS
@@ -71,12 +68,12 @@ export function calculateSaleItemsCOGS(
 }
 
 /**
- * Calculate COGS for legacy sales using WAC method
+ * Calculate COGS for legacy sales using direct inventory cost method
  */
 export function calculateLegacySalesCOGS(
 	legacySales: LegacySale[],
 	inventoryItems: InventoryItem[],
-	shipments: Shipment[]
+	_shipments?: any[] // Keep for compatibility but ignore
 ): COGSCalculation {
 	const itemizedCOGS: COGSCalculation['itemizedCOGS'] = []
 	let totalCOGS = 0
@@ -86,19 +83,15 @@ export function calculateLegacySalesCOGS(
 		const inventory = inventoryItems.find(inv => inv.id === sale.inventoryId)
 		if (!inventory) return
 
-		// Find the shipment for this inventory
-		const shipment = shipments.find(s => s.id === inventory.shipmentId)
-		if (!shipment) return
-
-		// Calculate WAC for this shipment
-		const unitCost = calculateShipmentWAC(shipment, inventoryItems)
+		// Calculate unit cost directly from inventory purchase data
+		const unitCost = calculateInventoryUnitCost(inventory)
 		
 		// Calculate COGS for this sale
 		const itemCOGS = unitCost * sale.quantitySold
 
 		itemizedCOGS.push({
 			itemId: sale.id,
-			shipmentId: shipment.id,
+			inventoryId: inventory.id,
 			quantitySold: sale.quantitySold,
 			unitCost,
 			itemCOGS
@@ -117,10 +110,10 @@ export function calculateTotalCOGS(
 	saleItems: SaleItem[],
 	legacySales: LegacySale[],
 	inventoryItems: InventoryItem[],
-	shipments: Shipment[]
+	_shipments?: any[] // Keep for compatibility but ignore
 ): number {
-	const newSalesCOGS = calculateSaleItemsCOGS(saleItems, inventoryItems, shipments)
-	const legacySalesCOGS = calculateLegacySalesCOGS(legacySales, inventoryItems, shipments)
+	const newSalesCOGS = calculateSaleItemsCOGS(saleItems, inventoryItems)
+	const legacySalesCOGS = calculateLegacySalesCOGS(legacySales, inventoryItems)
 	
 	return newSalesCOGS.totalCOGS + legacySalesCOGS.totalCOGS
 }
@@ -132,7 +125,7 @@ export function calculateCOGSForDateRange(
 	saleItems: SaleItem[],
 	legacySales: LegacySale[],
 	inventoryItems: InventoryItem[],
-	shipments: Shipment[],
+	_shipments?: any[], // Keep for compatibility but ignore
 	transactions: any[], // We need transactions to get sale dates for saleItems
 	startDate: Date,
 	endDate: Date
@@ -154,5 +147,5 @@ export function calculateCOGSForDateRange(
 		return saleDate && saleDate >= startDate && saleDate <= endDate
 	})
 	
-	return calculateTotalCOGS(filteredSaleItems, filteredLegacySales, inventoryItems, shipments)
+	return calculateTotalCOGS(filteredSaleItems, filteredLegacySales, inventoryItems)
 }
