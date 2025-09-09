@@ -151,19 +151,23 @@ export async function createTeam(name: string): Promise<{ id: string; name: stri
 	return { id: res.id, ...payload } as { id: string; name: string; ownerUid: string; members: string[] }
 }
 
-export async function createUserProfile(teamId: string, teamName: string): Promise<void> {
+export async function createUserProfile(teamId?: string | null, teamName?: string | null): Promise<void> {
 	const uid = requireUid()
 	const user = auth.currentUser
 	if (!user) throw new Error('No authenticated user')
 	
 	const ref = doc(db, 'users', uid)
-	const payload = {
+	const payload: any = {
 		displayName: user.displayName || '',
 		email: user.email || '',
-		teamId: teamId,
-		teamName: teamName,
 		createdAt: nowTimestamp(),
 		updatedAt: nowTimestamp(),
+	}
+	
+	// Only add team info if provided
+	if (teamId && teamName) {
+		payload.teamId = teamId
+		payload.teamName = teamName
 	}
 	
 	// Use setDoc since we want to use the UID as the document ID

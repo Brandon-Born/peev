@@ -14,8 +14,8 @@ export type Team = z.infer<typeof TeamSchema> & { id: string }
 export const UserSchema = z.object({
 	displayName: z.string(),
 	email: z.string().email(),
-	teamId: z.string(),
-	teamName: z.string(),
+	teamId: z.string().optional(), // Optional - users can exist without a team initially
+	teamName: z.string().optional(), // Optional - users can exist without a team initially
 	createdAt: z.any().optional(),
 	updatedAt: z.any().optional(),
 })

@@ -43,17 +43,43 @@ service cloud.firestore {
       allow create: if signedIn() && isTeamMember(request.resource.data.teamId);
     }
     
-    // Teams collection - only team members can read, only owner can update
+    // Teams collection - members can read and update (for invitations)
     match /teams/{teamId} {
       allow read: if signedIn() && isTeamMember(teamId);
       allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
-      allow update: if signedIn() && get(/databases/$(database)/documents/teams/$(teamId)).data.ownerUid == request.auth.uid;
+      allow update: if signedIn() && isTeamMember(teamId);  // Any team member can update (for invitations)
     }
     
-    // User profiles - users can only read/write their own profile
+    // User profiles - enhanced permissions for team management
     match /users/{userId} {
+      // Users can read/write their own profile
       allow read, write: if signedIn() && request.auth.uid == userId;
       allow create: if signedIn() && request.auth.uid == userId;
+      
+      // Team members can read other users (for finding by email) and update them (for invitations)
+      allow read: if signedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        (
+          // Current user has a team (can read others for invitations)
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAll(['teamId']) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.teamId != null
+        );
+      
+      allow write: if signedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        (
+          // Current user has a team and can invite others
+          (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAll(['teamId']) &&
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.teamId != null &&
+           (
+             // Can update if adding user to same team
+             request.resource.data.teamId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.teamId ||
+             // Can update if target user doesn't have a team yet
+             (!exists(/databases/$(database)/documents/users/$(userId)) || 
+              !resource.data.keys().hasAll(['teamId']) || 
+              resource.data.teamId == null)
+           ))
+        );
     }
   }
 }

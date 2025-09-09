@@ -1,7 +1,7 @@
 import React from 'react'
 import { User, onAuthStateChanged, signInWithPopup, signOut as fbSignOut } from 'firebase/auth'
 import { auth, googleProvider } from '../firebase'
-import { getUserProfile } from '../../data/firestore'
+import { getUserProfile, createUserProfile } from '../../data/firestore'
 import { User as UserProfile, Team } from '../../domain/models'
 
 type AuthContextValue = {
@@ -33,7 +33,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		}
 
 		try {
-			const profile = await getUserProfile(user.uid)
+			let profile = await getUserProfile(user.uid)
+			
+			// If no profile exists, create one automatically (for invitations to work)
+			if (!profile) {
+				console.log('Creating user profile for first-time user:', user.email)
+				await createUserProfile() // No team initially
+				profile = await getUserProfile(user.uid)
+			}
+			
 			setUserProfile(profile)
 			
 			if (!profile || !profile.teamId) {
@@ -46,8 +54,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 				// For now, we'll set a placeholder team - we'll fetch the actual team data later
 				// This prevents breaking existing functionality during the transition
 				setTeam({
-					id: profile.teamId,
-					name: profile.teamName,
+					id: profile.teamId!,
+					name: profile.teamName || '',
 					ownerUid: '',
 					members: [],
 					createdAt: null,
