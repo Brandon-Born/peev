@@ -150,7 +150,7 @@ export default async function handler(req, res) {
         const emailContent = generateEmailContent(teamName, enrichedItems)
         
         const emailResult = await resend.emails.send({
-          from: 'PEEV Alerts <alerts@peev.app>', // You'll need to configure this domain
+          from: 'PEEV Alerts <noreply@dont-look-at-the-chart.com>',
           to: memberEmails,
           subject: `⚠️ PEEV Alert: ${enrichedItems.length} items expiring soon`,
           html: emailContent,
