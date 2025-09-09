@@ -8,7 +8,7 @@ import { useAuth } from '../modules/auth/AuthContext'
 import { useColorMode } from '../theme'
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-	const { signOut, user } = useAuth()
+	const { signOut, user, team } = useAuth()
 	const { mode, toggleMode } = useColorMode()
 	const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null)
 	const open = Boolean(anchorEl)
@@ -32,6 +32,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 					</Menu>
 					<Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
 						PEEV
+						{team?.name && (
+							<Typography 
+								component="span" 
+								variant="subtitle1" 
+								sx={{ ml: 2, opacity: 0.8, fontWeight: 'normal' }}
+							>
+								• {team.name}
+							</Typography>
+						)}
 					</Typography>
 					<IconButton color="inherit" onClick={toggleMode} sx={{ mr: 1 }} aria-label="toggle theme">
 						{mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
